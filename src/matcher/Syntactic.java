@@ -15,6 +15,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Vector;
 
 import static com.hp.hpl.jena.vocabulary.OWLResults.system;
 
@@ -22,12 +23,14 @@ import static com.hp.hpl.jena.vocabulary.OWLResults.system;
  * Created by lpoon2 on 2/26/2017.
  */
 public class Syntactic {
-    public static Map<String, Map<String, String>> lookup1 = new HashMap<String , Map<String, String>>();
+    public static Map<String, Map<String, Vector<String>>> lookup1 = new HashMap<String , Map<String, Vector<String>>>();
     public static String   in ="input";
     public static String   out = "output";
     public static String   msg = "message";
+    private static String   cmplx = "complexType";
     public static String   part = "part";
     private static EditDistance EditDistance;
+    private static Vector<String> PrimType = new Vector<String>();
 
     /*
     separate a string by the position of the colon
@@ -46,7 +49,7 @@ public class Syntactic {
         out = add+":output";
         msg = add+":message";
         part = add+":part";
-
+        cmplx = add + ":complexType";
         return add;
     }
 
@@ -82,28 +85,47 @@ public class Syntactic {
 
                         String in_s = splitString(ele.getElementsByTagName(in).item(0).getAttributes().getNamedItem("message").getNodeValue());
                         String out_s = splitString(ele.getElementsByTagName(out).item(0).getAttributes().getNamedItem("message").getNodeValue());
-
-                        String xPath_in = "//" +msg+ "[@name='" +in_s+ "']";
-                        String xPath_out = "//"+msg+"[@name='"+out_s+"']";
-
+                        // searching the struct of the input/output parameter
+                        String xPath_in = "//*"  + "[@name=\"" +in_s+ "\"]";
+                        String xPath_out = "//*" +"[@name=\""+out_s+"\"]";
                         Node inNode = (Node) xPath.compile(xPath_in).evaluate(doc, XPathConstants.NODE);
                         Element pEle = (Element)inNode ;
 
                         Node outNode = (Node) xPath.compile(xPath_out).evaluate(doc, XPathConstants.NODE);
                         Element pEle_out = (Element) outNode;
                         try {
-                          //  if(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type") == null)
-                            io.put("input", splitString(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element").getNodeValue()));
+                            if (pEle != null) {
+                                    if(pEle.getElementsByTagName(part).getLength() != 0) {
+                                        if(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element") != null)
+                                        io.put("input", splitString(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element").getNodeValue()));
+                                        else if(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type") != null){
+                                            String type = splitString(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type").getNodeValue());
+                                            if(PrimType.contains(type))
+                                            io.put("input", splitString(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("name").getNodeValue()));
 
-                           // io.put("input", splitString(pEle.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type").getNodeValue()));
+                                            else{
 
-                            io.put("output", splitString(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element").getNodeValue()));
+                                                String path_to_struct = "//*" + "[@name=\"" +type+ "\"]" ;
+                                           //     Node inNode = (Node) xPath.compile(path_to_struct).evaluate(doc, XPathConstants.NODE);
 
-                            //io.put("output", splitString(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type").getNodeValue()));
+                                            }
 
+                                        }
+
+                                    }
+                            }
+
+                            if(pEle_out != null) {
+                                if(pEle_out.getElementsByTagName(part).getLength() != 0)
+                                    if(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element") != null)
+                                    io.put("output", splitString(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("element").getNodeValue()));
+                                    else if(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type") != null)
+                                        io.put("input", splitString(pEle_out.getElementsByTagName(part).item(0).getAttributes().getNamedItem("type").getNodeValue()));
+
+                            }
                         }
                         catch (Exception e){
-                                //     e.printStackTrace();
+                        //    e.printStackTrace();
 
                             io.put("input", "result");
                             io.put("output", "response");
@@ -144,8 +166,26 @@ public class Syntactic {
 
         }
     }
+
+    /*
+    initialize primitive vector
+     */
+    public static void init(){
+        PrimType.add("string");
+        PrimType.add("long");
+        PrimType.add("dateTime");
+        PrimType.add("double");
+        PrimType.add("boolean");
+        PrimType.add("int");
+        PrimType.add("byte");
+        PrimType.add("short");
+        PrimType.add("float");
+        PrimType.add("char");
+    }
+
     public static void main(String[] args){
-        Map<String, Map<String, String>> input = parseDOM("WSDLs/compositeAmazonFlexiblePaymentsServiceAPIProfile.wsdl");
+        init();
+        Map<String, Map<String, String>> input = parseDOM("WSDLs/LibertyReserveAPIProfile.wsdl");
         Map<String, Map<String, String>> output = parseDOM("WSDLs/Data8CreditCardValidationAPIProfile.wsdl");
         makeDoc(input,output);
     }
